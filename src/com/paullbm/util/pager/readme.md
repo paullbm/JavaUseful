@@ -5,7 +5,7 @@
 ### 使用场景之Hibernate
 此类在构造时最多只要３个参数。由于容错需要，list的setter得进行后继处理。
 假设你使用了Hibernate，核心代码如下：
-```
+```java
 int totalCount=Integer.valueOf(queryCount.uniqueResult().toString());
 Pager pager=new Pager<T>(totalCount, pageNumber,limit);
 queryList.setFirstResult((pager.getPageNumber()-1)*limit); //容错处理
