@@ -13,12 +13,12 @@ import com.paullbm.timingcost.entity.PriceItem;
  * @author paullbm
  */
 public class CountCost implements ICountCost {
-	private int freeTime = 15 * 60 * 1000; // 15分钟免费时间(毫秒数)
+	private int freeTimeSecond = 15 * 60; // 15分钟免费时间(秒数)
 	private int oneDayLimitCost = 120; // 1天的封顶费用
 
-	private int oneHourMsec = 60 * 60 * 1000; // 1小时包含的毫秒数
-	private long oneDayMsec = 24 * oneHourMsec; // =86400000毫秒
-	private long east8ZoneMsec = 8 * oneHourMsec; // 东八区附加毫秒数
+	private int oneHourSecond = 60 * 60; // 1小时包含的秒数
+	private long oneDaySecond = 24 * oneHourSecond; // =86400毫秒
+	private long east8ZoneSecond = 8 * oneHourSecond; // 东八区附加毫秒数
 
 	private int[][] listPrices = {
 			{ 1, 0, 5, 2 },
@@ -60,8 +60,8 @@ public class CountCost implements ICountCost {
 		for (int i = 0; i < 8; i++) {
 			PriceItem struct = new PriceItem(
 					this.listPrices[i][0],
-					this.listPrices[i][1] * this.oneHourMsec,
-					this.listPrices[i][2] * this.oneHourMsec,
+					this.listPrices[i][1] * this.oneHourSecond,
+					this.listPrices[i][2] * this.oneHourSecond,
 					this.listPrices[i][3]);
 			this.itemList.add(i, struct);
 		}
@@ -69,15 +69,15 @@ public class CountCost implements ICountCost {
 
 	@Override
 	public int getTotalPrice() {
-		long startTimeMsec = this.startDate.getTime();
-		long endTimeMsec = this.endDate.getTime();
+		long startTimeSecond = this.startDate.getTime() / 1000;
+		long endTimeSecond = this.endDate.getTime() / 1000;
 
-		if (isFreeTime(startTimeMsec, endTimeMsec)) // 如果是免费时间内
+		if (isFreeTime(startTimeSecond, endTimeSecond)) // 如果是免费时间内
 			return 0;
 
 		int totalPrice = 0;
-		int limitCost=getLimitCost(startTimeMsec, endTimeMsec);
-		int normalCost = getWithin1DayCost(startTimeMsec, endTimeMsec);
+		int limitCost=getLimitCost(startTimeSecond, endTimeSecond);
+		int normalCost = getWithin1DayCost(startTimeSecond, endTimeSecond);
 		totalPrice += (limitCost+normalCost);
 		System.out.println("封顶消费="+limitCost + "元");
 		System.out.println("普通消费="+normalCost + "元");
@@ -85,20 +85,20 @@ public class CountCost implements ICountCost {
 	}
 
 	// 判断是否是在免费时间范围内
-	private boolean isFreeTime(long startTimeMsec, long endTimeMsec) {
-		long timeDiff = endTimeMsec - startTimeMsec;
-		if (timeDiff <= freeTime)
+	private boolean isFreeTime(long startTimeSecond, long endTimeSecond) {
+		long timeDiff = endTimeSecond - startTimeSecond;
+		if (timeDiff <= freeTimeSecond)
 			return true;
 		return false;
 	}
 
 	// 计算封顶费用
-	private int getLimitCost(long startTimeMsec, long endTimeMsec) {
+	private int getLimitCost(long startTimeSecond, long endTimeSecond) {
 		int limitPrice = 0;
 		while (true) {
-			if (endTimeMsec - startTimeMsec >= oneDayMsec) {
+			if (endTimeSecond - startTimeSecond >= oneDaySecond) {
 				limitPrice += oneDayLimitCost;
-				startTimeMsec += oneDayMsec;
+				startTimeSecond += oneDaySecond;
 			} else {
 				break;
 			}
@@ -107,43 +107,49 @@ public class CountCost implements ICountCost {
 	}
 
 	//计算1天以内的小时数的消费金额(要注意跨天问题)
-	private int getWithin1DayCost(long startTimeMsec, long endTimeMsec) {
+	private int getWithin1DayCost(long startTimeSecond, long endTimeSecond) {
 		int normalPrice = 0;
-		long relativeStartTimeMsec = startTimeMsec % oneDayMsec
-				+ east8ZoneMsec + freeTime;  //东八区调整再累加免费时长
-		long relativeEndTimeMsec = endTimeMsec % oneDayMsec + east8ZoneMsec;
-		if (relativeEndTimeMsec < relativeStartTimeMsec) {
+		long relativeStartTimeSecond = (startTimeSecond + east8ZoneSecond) % oneDaySecond + freeTimeSecond;  //东八区调整再累加免费时长
+		long relativeEndTimeSecond = (endTimeSecond + east8ZoneSecond) % oneDaySecond;
+		if (relativeEndTimeSecond < relativeStartTimeSecond) {
 			//考虑跨天问题，相对结束时间则需要累加1天
-			relativeEndTimeMsec += oneDayMsec;
+			relativeEndTimeSecond += oneDaySecond;
 		}
 
-		long offsetTimeMsec = oneHourMsec - freeTime; // 计算时间偏移量
+		long offsetTimeSecond = oneHourSecond - (relativeStartTimeSecond % oneHourSecond) + 1; // 计算时间偏移量
 		boolean isFirst = true;
+
 		int index = 0;
-		while (relativeStartTimeMsec < relativeEndTimeMsec) {
-			for (; index < itemList.size(); index++) {
+		int size=itemList.size();
+		while (relativeStartTimeSecond < relativeEndTimeSecond) {
+			while(index < size) {
+				if(relativeStartTimeSecond >= relativeEndTimeSecond)
+					break;
 				PriceItem item = itemList.get(index);
-				while (relativeStartTimeMsec > item.getStart()
-						&& relativeStartTimeMsec <= item.getEnd()) {
-					if (relativeStartTimeMsec >= relativeEndTimeMsec)
-						break;
+				if (relativeStartTimeSecond > item.getStart()
+						&& relativeStartTimeSecond < item.getEnd()) {
+					normalPrice += item.getPrice();
 					if (isFirst) { // 首次要添加时间偏移量
-						relativeStartTimeMsec += offsetTimeMsec;
+						relativeStartTimeSecond += offsetTimeSecond;
 						isFirst = false;
 					} else { // 之后可进行整小时添加
-						relativeStartTimeMsec += oneHourMsec;
+						relativeStartTimeSecond += oneHourSecond;
 					}
-					normalPrice += item.getPrice();
-					System.out.print(item);
-					System.out.println(", 阶段性累计消费=" + normalPrice + "元");
+
+					System.out.print(item + ", 阶段性累计消费=" + normalPrice + "元\n");
+//					System.out.println(", relativeStartTimeSecond=" + relativeStartTimeSecond
+//							+ ", relativeEndTimeSecond=" + relativeEndTimeSecond);
+				}else{
+					if(relativeStartTimeSecond > item.getEnd())
+						index++;
 				}
 			}
 
-			if(relativeStartTimeMsec < relativeEndTimeMsec) {
+			if (relativeEndTimeSecond > oneDaySecond) {
 				//如果按条件迭代完this.itemList还能进入此处
 				//说明存在跨天情况，则需要进行相关调整
-				relativeStartTimeMsec -= oneDayMsec;
-				relativeEndTimeMsec -= oneDayMsec;
+				relativeStartTimeSecond = 1;
+				relativeEndTimeSecond -= oneDaySecond;
 				index = 0;
 			}
 		}
