@@ -17,8 +17,8 @@ public class CountCost implements ICountCost {
 	private int oneDayLimitCost = 120; // 1天的封顶费用
 
 	private int oneHourSecond = 60 * 60; // 1小时包含的秒数
-	private long oneDaySecond = 24 * oneHourSecond; // =86400毫秒
-	private long east8ZoneSecond = 8 * oneHourSecond; // 东八区附加毫秒数
+	private long oneDaySecond = 24 * oneHourSecond; // =86400秒
+	private long east8ZoneSecond = 8 * oneHourSecond; // 东八区附加秒数
 
 	private int[][] listPrices = {
 			{ 1, 0, 5, 2 },
@@ -109,7 +109,8 @@ public class CountCost implements ICountCost {
 	//计算1天以内的小时数的消费金额(要注意跨天问题)
 	private int getWithin1DayCost(long startTimeSecond, long endTimeSecond) {
 		int normalPrice = 0;
-		long relativeStartTimeSecond = (startTimeSecond + east8ZoneSecond) % oneDaySecond + freeTimeSecond;  //东八区调整再累加免费时长
+		long relativeStartTimeSecond = (startTimeSecond + east8ZoneSecond) % oneDaySecond
+				+ freeTimeSecond;  //东八区调整再累加免费时长
 		long relativeEndTimeSecond = (endTimeSecond + east8ZoneSecond) % oneDaySecond;
 		if (relativeEndTimeSecond < relativeStartTimeSecond) {
 			//考虑跨天问题，相对结束时间则需要累加1天
